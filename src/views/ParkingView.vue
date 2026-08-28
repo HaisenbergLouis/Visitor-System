@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { parkings as fallback, type ParkingConfig } from '@/mock/data'
+import { parkings as fallback, type Parking, type ParkingConfig } from '@/mock/data'
 import { api } from '@/api'
 import { notify } from '@/utils/toast'
 import * as echarts from 'echarts'
@@ -9,7 +9,7 @@ import EChart from '@/components/EChart.vue'
 const filter = ref('全部')
 const filters = ['全部', '停放中', '已离场', '超时']
 
-const list = ref(fallback)
+const list = ref<Parking[]>(fallback)
 const loading = ref(true)
 const online = ref(false)
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   DataAnalysis,
@@ -13,9 +13,18 @@ import {
   OfficeBuilding,
 } from '@element-plus/icons-vue'
 import { getAuthUser, clearAuthUser } from '@/utils/auth'
+import { nowFull } from '@/utils/date'
 
 const route = useRoute()
 const router = useRouter()
+
+// ===== 顶部实时时钟（每秒刷新） =====
+const clock = ref(nowFull())
+let clockTimer: number | undefined
+onMounted(() => {
+  clockTimer = window.setInterval(() => (clock.value = nowFull()), 1000)
+})
+onBeforeUnmount(() => window.clearInterval(clockTimer))
 
 const navGroups = [
   {
@@ -109,6 +118,7 @@ function logout() {
           <span class="t-sub">访客全生命周期闭环管理</span>
         </div>
         <div class="t-right">
+          <span style="font-size: 13px; color: var(--ink-500); font-variant-numeric: tabular-nums">{{ clock }}</span>
           <span style="font-size: 13px; color: var(--ink-500)">在线 · 演示环境</span>
           <div class="u-ava">{{ user?.name?.[0] || '园' }}</div>
           <div style="font-size: 13px; font-weight: 600">{{ user?.name || '园区管理员' }}</div>
