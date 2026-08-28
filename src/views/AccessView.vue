@@ -298,9 +298,9 @@ async function confirmDeleteDevice() {
     <div class="card">
       <div class="card-h">
         <h3>终端设备管理</h3>
-        <span class="chip">{{
+        <!-- <span class="chip">{{
           loading ? '加载中…' : online ? '🟢 已连接 Mock 服务' : '⚪ 离线模式'
-        }}</span>
+        }}</span> -->
         <button class="btn ghost sm" @click="load">刷新</button>
         <span class="chip">共 {{ list.length }} 台</span>
       </div>
@@ -519,7 +519,9 @@ async function confirmDeleteDevice() {
     <div v-if="deleteTarget" class="modal-mask" @click.self="closeDeleteDevice">
       <div class="modal" style="width: 400px">
         <div class="mh">删除设备</div>
-        <div class="mb">确认删除设备「{{ deleteTarget.name }}」？删除后该设备将从终端列表中移除。</div>
+        <div class="mb">
+          确认删除设备「{{ deleteTarget.name }}」？删除后该设备将从终端列表中移除。
+        </div>
         <div class="mf">
           <button class="btn ghost sm" @click="closeDeleteDevice">取消</button>
           <button class="btn danger sm" @click="confirmDeleteDevice">确认删除</button>

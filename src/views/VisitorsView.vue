@@ -4,7 +4,12 @@ import { useRouter } from 'vue-router'
 import { api } from '@/api'
 import { notify } from '@/utils/toast'
 import { confirmDialog } from '@/utils/confirm'
-import { visitors as fallback, blacklist as blacklistFallback, type Blacklist, type VisitRecord } from '@/mock/data'
+import {
+  visitors as fallback,
+  blacklist as blacklistFallback,
+  type Blacklist,
+  type VisitRecord,
+} from '@/mock/data'
 import { fromFullDate, todayFull } from '@/utils/date'
 
 const router = useRouter()
@@ -69,9 +74,7 @@ async function loadBlacklist() {
 }
 
 // 当前访客列表中「命中黑名单」的记录（预警条动态统计）
-const hits = computed(() =>
-  list.value.filter(v => blacklist.value.some(b => b.name === v.name)),
-)
+const hits = computed(() => list.value.filter(v => blacklist.value.some(b => b.name === v.name)))
 
 function isBanned(v: VisitRecord) {
   return blacklist.value.some(b => b.name === v.name)
@@ -85,11 +88,10 @@ const mgrLevel = ref('全部')
 const mgrFiltered = computed(() =>
   blacklist.value.filter(b => {
     const kw = mgrKeyword.value.trim()
-    const matchKw =
-      !kw || b.name.includes(kw) || b.certNo.includes(kw) || b.reason.includes(kw)
+    const matchKw = !kw || b.name.includes(kw) || b.certNo.includes(kw) || b.reason.includes(kw)
     const matchLevel = mgrLevel.value === '全部' || b.level === mgrLevel.value
     return matchKw && matchLevel
-  }),
+  })
 )
 
 function openBlacklistMgr() {
@@ -107,7 +109,9 @@ async function removeBlacklist(b: Blacklist) {
   if (!ok) return
   try {
     const r = await api.deleteBlacklist(b.id)
-    notify.success(`已解除「${b.name}」黑名单` + (r.restored ? `，恢复 ${r.restored} 条访问单` : ''))
+    notify.success(
+      `已解除「${b.name}」黑名单` + (r.restored ? `，恢复 ${r.restored} 条访问单` : '')
+    )
     await loadBlacklist()
     await load()
   } catch {
@@ -146,7 +150,11 @@ async function submitBlacklist() {
     await loadBlacklist()
     await load()
   } catch (e) {
-    notify.warn((e as Error)?.message?.includes('409') ? '该访客已在名单中，无需重复加入' : '加入失败：请确认 Mock 服务已启动')
+    notify.warn(
+      (e as Error)?.message?.includes('409')
+        ? '该访客已在名单中，无需重复加入'
+        : '加入失败：请确认 Mock 服务已启动'
+    )
   } finally {
     addBlackSaving.value = false
   }
@@ -182,15 +190,17 @@ async function submitBan() {
       source: '访客详情 · 一键拉黑',
       linkVisits: true,
     })
-    notify.success(
-      `已拉黑「${f.name}」` + (r.linked ? `，联动置灰 ${r.linked} 条访问单` : ''),
-    )
+    notify.success(`已拉黑「${f.name}」` + (r.linked ? `，联动置灰 ${r.linked} 条访问单` : ''))
     showBan.value = false
     detail.value = null
     await loadBlacklist()
     await load()
   } catch (e) {
-    notify.warn((e as Error)?.message?.includes('409') ? '该访客已在名单中' : '拉黑失败：请确认 Mock 服务已启动')
+    notify.warn(
+      (e as Error)?.message?.includes('409')
+        ? '该访客已在名单中'
+        : '拉黑失败：请确认 Mock 服务已启动'
+    )
   } finally {
     addBlackSaving.value = false
   }
@@ -348,7 +358,9 @@ async function submitAdd() {
     <!-- 黑名单预警条（名单库来自后端 API；"命中"= 当前访客列表中匹配名单库的人员） -->
     <div v-if="blacklist.length" class="card" style="border-color: #fecaca; background: #fff7f7">
       <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
-        <span class="badge d">● 黑名单库 {{ blacklist.length }} 人 · 当前列表命中 {{ hits.length }} 人</span>
+        <span class="badge d"
+          >● 黑名单库 {{ blacklist.length }} 人 · 当前列表命中 {{ hits.length }} 人</span
+        >
         <span v-if="hits.length" v-for="v in hits" :key="v.id" class="chip">
           {{ v.name }} · {{ v.status === '黑名单' ? '访问单已置灰' : '待处理' }}
         </span>
@@ -366,9 +378,9 @@ async function submitAdd() {
       <div class="card-h">
         <h3>访客列表（{{ filtered.length }} 条）</h3>
         <div style="display: flex; align-items: center; gap: 10px">
-          <span class="chip">{{
+          <!-- <span class="chip">{{
             loading ? '加载中…' : online ? '🟢 与小程序数据互通' : '⚪ 离线模式'
-          }}</span>
+          }}</span> -->
           <button class="btn ghost sm" @click="load">刷新</button>
           <span class="chip">两级黑白名单：企业 / 个人</span>
         </div>
@@ -592,7 +604,7 @@ async function submitAdd() {
 
     <!-- 黑名单管理弹窗（搜索 / 筛选 / 新增 / 解除） -->
     <div v-if="showMgr" class="modal-mask" @click.self="showMgr = false">
-      <div class="modal" style="width: 680px">
+      <div class="modal" style="width: 760px">
         <div class="mh">黑名单管理 · 共 {{ blacklist.length }} 条</div>
         <div class="mb">
           <div class="toolbar" style="margin-bottom: 12px">
@@ -605,7 +617,16 @@ async function submitAdd() {
             <span class="chip">两级名单：企业 / 个人，命中即拦截核验</span>
           </div>
           <div class="dtable-wrap" style="max-height: 240px; overflow: auto">
-            <table class="dtable">
+            <table class="dtable fixed-layout">
+              <colgroup>
+                <col style="width: 90px" />
+                <col style="width: 160px" />
+                <col style="width: 70px" />
+                <col style="min-width: 130px" />
+                <col style="width: 90px" />
+                <col style="width: 110px" />
+                <col style="width: 64px" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>姓名</th>
@@ -620,11 +641,13 @@ async function submitAdd() {
               <tbody>
                 <tr v-for="b in mgrFiltered" :key="b.id">
                   <td>{{ b.name }}</td>
-                  <td style="font-family: monospace; font-size: 12px">{{ b.certNo }}</td>
+                  <td style="font-family: monospace; font-size: 12px" :title="b.certNo">
+                    {{ b.certNo }}
+                  </td>
                   <td>
                     <span class="badge" :class="b.level === '企业' ? 'd' : 'r'">{{ b.level }}</span>
                   </td>
-                  <td>{{ b.reason }}</td>
+                  <td :title="b.reason">{{ b.reason }}</td>
                   <td>{{ b.source }}</td>
                   <td>{{ b.createTime }}</td>
                   <td>
@@ -638,7 +661,9 @@ async function submitAdd() {
             <div v-if="!mgrFiltered.length" class="empty">名单库为空或无匹配记录</div>
           </div>
 
-          <div style="font-size: 13px; font-weight: 700; margin: 16px 0 10px; color: var(--ink-900)">
+          <div
+            style="font-size: 13px; font-weight: 700; margin: 16px 0 10px; color: var(--ink-900)"
+          >
             新增黑名单
           </div>
           <div class="form-grid">
@@ -663,7 +688,8 @@ async function submitAdd() {
             </div>
           </div>
           <div style="font-size: 12.5px; color: var(--ink-400); margin-top: 10px">
-            加入后自动联动：该访客「待审批 / 已通过」访问单置为黑名单，小程序通行码禁用、闸机核验拒绝；解除时恢复原状态，全程留痕。
+            加入后自动联动：该访客「待审批 /
+            已通过」访问单置为黑名单，小程序通行码禁用、闸机核验拒绝；解除时恢复原状态，全程留痕。
           </div>
         </div>
         <div class="mf">
@@ -698,7 +724,8 @@ async function submitAdd() {
             </div>
           </div>
           <div style="font-size: 12.5px; color: var(--ink-400); margin-top: 10px">
-            确认后：该访客「待审批 / 已通过」访问单将联动置灰，小程序通行码禁用、闸机核验拒绝，操作全程留痕。
+            确认后：该访客「待审批 /
+            已通过」访问单将联动置灰，小程序通行码禁用、闸机核验拒绝，操作全程留痕。
           </div>
         </div>
         <div class="mf">

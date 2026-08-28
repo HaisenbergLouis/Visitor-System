@@ -135,6 +135,27 @@ const blacklistRaw: Blacklist[] = [
   { id: 'B003', name: '徐芳', certNo: '3301**********4567', level: '个人', reason: '被访人投诉', source: '手工录入', createTime: '07-28 09:05' },
 ]
 
+// 异常核验台：真实核验异常事件（verify-qr 安全类失败自动追加），由值班人员处置留痕
+export interface Anomaly {
+  id: string
+  visitor: string
+  type: string
+  level: '高' | '中' | '低'
+  device: string
+  area: string
+  time: string
+  desc: string
+  status: '待处置' | '已处置'
+  disposeAction?: string
+  operator?: string
+  disposeTime?: string
+}
+
+const anomaliesRaw: Anomaly[] = [
+  { id: 'AN-001', visitor: '黄伟', type: '翻拍预警', level: '高', device: '南门人脸终端 03', area: '园区南门', time: '08-12 08:47', desc: '人证比对疑似照片翻拍，活体检测得分偏低，建议转人工核验', status: '待处置' },
+  { id: 'AN-002', visitor: '徐芳', type: '无权限闯入', level: '中', device: '研发楼 3F 门禁', area: '研发楼 3F 实验室', time: '08-12 08:12', desc: '尝试进入研发楼 3F 实验室，通行权限不含该区域，已现场拦截', status: '待处置' },
+]
+
 // 报表聚合数据
 export const report = {
   weekly: [
@@ -231,4 +252,9 @@ export const parkings = parkingsRaw.map((p) => ({
 export const blacklist = blacklistRaw.map((b) => ({
   ...b,
   createTime: shiftDate(b.createTime)!,
+}))
+
+export const anomalies = anomaliesRaw.map((a) => ({
+  ...a,
+  time: shiftDate(a.time)!,
 }))
