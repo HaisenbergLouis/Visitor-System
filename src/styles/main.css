@@ -411,6 +411,19 @@ table.dtable {
   border-collapse: collapse;
   font-size: 13.5px;
 }
+/* 固定列宽模式：防止长文本（证件号/原因）挤压短列导致文字竖排 */
+table.dtable.fixed-layout {
+  table-layout: fixed;
+}
+.dtable.fixed-layout th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dtable.fixed-layout td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dtable th {
   text-align: left;
   font-size: 12.5px;

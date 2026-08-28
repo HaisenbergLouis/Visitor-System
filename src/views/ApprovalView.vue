@@ -103,7 +103,9 @@ async function submitInvite() {
       plate: '',
       companions: 0,
     })
-    notify.success('邀约已发送：访客「' + inviteForm.value.name.trim() + '」已生成邀约记录（待审批）')
+    notify.success(
+      '邀约已发送：访客「' + inviteForm.value.name.trim() + '」已生成邀约记录（待审批）'
+    )
     showInvite.value = false
     await load()
   } catch {
@@ -204,7 +206,10 @@ const rescheduleForm = ref({ dateInput: todayFull(), time: '10:00' })
 
 function openReschedule(a: VisitRecord) {
   rescheduleTarget.value = a
-  rescheduleForm.value = { dateInput: toFullDate(a.date), time: (a.time || '').split('–')[0] || '10:00' }
+  rescheduleForm.value = {
+    dateInput: toFullDate(a.date),
+    time: (a.time || '').split('–')[0] || '10:00',
+  }
   showReschedule.value = true
 }
 function closeReschedule() {
@@ -284,7 +289,7 @@ async function submitReschedule() {
           已处理（{{ doneList.length }}）
         </button>
         <div class="spacer"></div>
-        <span class="chip" :class="online ? '' : ''" style="cursor: default">
+        <!-- <span class="chip" :class="online ? '' : ''" style="cursor: default">
           {{
             loading
               ? '加载中…'
@@ -292,7 +297,7 @@ async function submitReschedule() {
                 ? '🟢 已连接 Mock 服务（与小程序数据互通）'
                 : '⚪ 离线模式（本地数据）'
           }}
-        </span>
+        </span> -->
         <button class="btn ghost sm" @click="load">刷新</button>
       </div>
 

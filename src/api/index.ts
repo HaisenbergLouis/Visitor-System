@@ -5,6 +5,7 @@ import type {
   Device,
   Parking,
   Blacklist,
+  Anomaly,
   LinkRule,
   ParkingConfig,
 } from '@/mock/data'
@@ -35,6 +36,20 @@ export const api = {
   listVerifies: () => req<Verify[]>('/verifies'),
   createVerify: (data: Partial<Verify>) =>
     req<Verify>('/verifies', { method: 'POST', body: JSON.stringify(data) }),
+  // 异常核验台
+  listAnomalies: () => req<Anomaly[]>('/anomalies'),
+  disposeAnomaly: (
+    id: string,
+    body: { action: 'pass' | 'guide' | 'blacklist'; operator?: string },
+  ) =>
+    req<{
+      ok: boolean
+      anomaly: Anomaly
+      blacklist: { alreadyInBlacklist: boolean; item?: Blacklist; linked?: number } | null
+    }>('/anomalies/' + encodeURIComponent(id) + '/dispose', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   // 设备
   listDevices: () => req<Device[]>('/devices'),
   createDevice: (data: Partial<Device>) =>

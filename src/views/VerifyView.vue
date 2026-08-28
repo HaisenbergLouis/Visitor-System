@@ -1,8 +1,9 @@
 <!-- 认证界面 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { verifies as fallback } from '@/mock/data'
+import { verifies as fallback, anomalies as anomalyFallback, type Anomaly } from '@/mock/data'
 import { api } from '@/api'
+import { notify } from '@/utils/toast'
 import * as echarts from 'echarts'
 import EChart from '@/components/EChart.vue'
 
@@ -11,22 +12,34 @@ const list = ref(fallback)
 const loading = ref(true)
 const online = ref(false)
 
+// ===== 异常核验台（真实数据：mock-server /api/anomalies，5s 轮询同步） =====
+const anomalies = ref<Anomaly[]>(anomalyFallback)
+const anomalyLoading = ref(true)
+const anomalyOnline = ref(false)
+const pendingCount = computed(() => anomalies.value.filter(a => a.status === '待处置').length)
+
 async function load() {
   loading.value = true
   try {
-    list.value = await api.listVerifies()
+    const [v, an] = await Promise.all([api.listVerifies(), api.listAnomalies()])
+    list.value = v
+    anomalies.value = an
     online.value = true
+    anomalyOnline.value = true
   } catch {
     list.value = fallback
+    anomalies.value = anomalyFallback
     online.value = false
+    anomalyOnline.value = false
   } finally {
     loading.value = false
+    anomalyLoading.value = false
   }
 }
 let syncTimer: number | undefined
 onMounted(() => {
   load()
-  syncTimer = window.setInterval(load, 5000) // 每 5 秒自动同步对端（小程序签到）
+  syncTimer = window.setInterval(load, 5000) // 每 5 秒自动同步对端（小程序签到 / 闸机异常）
 })
 onBeforeUnmount(() => window.clearInterval(syncTimer))
 
@@ -38,8 +51,50 @@ function resultClass(r: string) {
   return r === '通过' ? 's' : r === '翻拍预警' ? 'r' : 'd'
 }
 
+// ===== 异常处置 =====
 const showModal = ref(false)
-const modalTarget = ref('访客「黄伟」')
+const disposeTarget = ref<Anomaly | null>(null)
+const disposeAction = ref<'pass' | 'guide' | 'blacklist'>('pass')
+const disposing = ref(false)
+const disposeOptions: { key: 'pass' | 'guide' | 'blacklist'; label: string; hint: string }[] = [
+  { key: 'pass', label: '人工复核通过', hint: '人工复核无误，标记放行并留痕' },
+  { key: 'guide', label: '引导前台核验', hint: '转前台人工核验证件后放行' },
+  { key: 'blacklist', label: '加入黑名单并拦截', hint: '拉黑该访客，联动拦截其可通行访问单' },
+]
+
+function openDispose(a: Anomaly) {
+  disposeTarget.value = a
+  disposeAction.value = 'pass'
+  showModal.value = true
+}
+
+async function confirmDispose() {
+  const a = disposeTarget.value
+  if (!a || disposing.value) return
+  disposing.value = true
+  try {
+    const r = await api.disposeAnomaly(a.id, {
+      action: disposeAction.value,
+      operator: '值班安保',
+    })
+    showModal.value = false
+    const hint = r.blacklist?.alreadyInBlacklist
+      ? '（该访客已在黑名单，本次仅处置留痕）'
+      : r.blacklist && r.blacklist.linked
+        ? `（已联动置灰 ${r.blacklist.linked} 条访问单）`
+        : ''
+    notify.success('已处置：' + a.visitor + ' ' + r.anomaly.disposeAction + hint)
+    await load()
+  } catch {
+    notify.error('处置失败：请确认 Mock 服务已启动（node mock-server）')
+  } finally {
+    disposing.value = false
+  }
+}
+
+function levelClass(l: string) {
+  return l === '高' ? 'd' : l === '中' ? 'w' : 's'
+}
 
 // 核验方式分布（环形图）
 const methodOption = computed<echarts.EChartsOption>(() => ({
@@ -99,43 +154,60 @@ const resultOption = computed<echarts.EChartsOption>(() => ({
     },
   ],
 }))
-
-function handleAbnormal(v: { visitor: string }) {
-  modalTarget.value = '访客「' + v.visitor + '」'
-  showModal.value = true
-}
 </script>
 
 <template>
   <div>
-    <!-- 异常核验台 -->
+    <!-- 异常核验台（真实数据：闸机/人脸终端异常事件 + 扫码拦截，5s 自动同步） -->
     <div class="card" style="border-color: #fecaca; background: #fff7f7">
       <div class="card-h">
         <h3>⚠️ 异常核验台</h3>
-        <span class="badge r">翻拍预警 1</span>
+        <!-- <span class="chip" :style="{ color: anomalyOnline ? '#15803d' : '#b45309', background: anomalyOnline ? '#dcfce7' : '#fef3c7' }">
+          {{ anomalyLoading ? '同步中…' : anomalyOnline ? '🟢 实时同步' : '⚪ 离线演示数据' }}
+        </span> -->
+        <span v-if="pendingCount" class="badge d">待处置 {{ pendingCount }}</span>
+        <span v-else class="badge s">全部已处置</span>
       </div>
       <div
-        class="toast err"
-        style="display: flex; width: 100%; justify-content: space-between; margin: 0 0 8px"
+        v-if="anomalies.length === 0"
+        class="toast"
+        style="margin: 0; background: #f0fdf4; border-color: #bbf7d0; color: #15803d"
       >
-        <span>南门人脸终端捕获「翻拍预警」：访客黄伟，人证比对疑似照片翻拍，建议转人工核验</span>
+        🎉 当前无异常核验事件，各门禁终端运行正常
+      </div>
+      <div
+        v-for="a in anomalies"
+        :key="a.id"
+        class="toast"
+        :class="a.status === '待处置' ? 'err' : ''"
+        style="
+          display: flex;
+          width: 100%;
+          justify-content: space-between;
+          margin: 0 0 8px;
+          align-items: center;
+        "
+      >
+        <div style="flex: 1; min-width: 0">
+          <span class="badge" :class="levelClass(a.level)">{{ a.level }}危</span>
+          <strong>{{ a.visitor }}</strong>
+          <span class="chip" style="margin-left: 6px">{{ a.type }}</span>
+          <span style="font-size: 12px; color: var(--ink-400)">{{ a.device }} · {{ a.time }}</span>
+          <div style="font-size: 12.5px; color: var(--ink-500); margin-top: 4px; line-height: 1.5">
+            {{ a.desc }}
+          </div>
+          <div
+            v-if="a.status === '已处置'"
+            style="font-size: 12px; color: #15803d; margin-top: 4px"
+          >
+            ✓ 已处置：{{ a.disposeAction }} · {{ a.operator }} · {{ a.disposeTime }}
+          </div>
+        </div>
         <button
+          v-if="a.status === '待处置'"
           class="btn danger sm"
-          style="flex: none"
-          @click="handleAbnormal({ visitor: '黄伟' })"
-        >
-          处置
-        </button>
-      </div>
-      <div
-        class="toast warn"
-        style="display: flex; width: 100%; justify-content: space-between; margin: 0"
-      >
-        <span>非授权区域闯入：访客徐芳尝试进入「研发楼 3F 实验室」，无该区域权限</span>
-        <button
-          class="btn secondary sm"
-          style="flex: none"
-          @click="handleAbnormal({ visitor: '徐芳' })"
+          style="flex: none; margin-left: 12px"
+          @click="openDispose(a)"
         >
           处置
         </button>
@@ -200,20 +272,36 @@ function handleAbnormal(v: { visitor: string }) {
     </div>
 
     <!-- 处置弹窗 -->
-    <div v-if="showModal" class="modal-mask" @click.self="showModal = false">
+    <div v-if="showModal && disposeTarget" class="modal-mask" @click.self="showModal = false">
       <div class="modal">
-        <div class="mh">现场处置</div>
+        <div class="mh">现场处置 · {{ disposeTarget.visitor }}</div>
         <div class="mb">
-          {{ modalTarget }} 核验存在异常，请选择处置方式：<br /><br />
-          <div style="display: flex; gap: 8px; flex-wrap: wrap">
-            <button class="btn secondary sm">人工复核通过</button>
-            <button class="btn ghost sm">引导前台核验</button>
-            <button class="btn danger sm">加入黑名单并拦截</button>
+          <div style="font-size: 12.5px; color: var(--ink-500); margin-bottom: 12px">
+            {{ disposeTarget.type }}（{{ disposeTarget.device }} {{ disposeTarget.time }}）：{{
+              disposeTarget.desc
+            }}
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <button
+              v-for="m in disposeOptions"
+              :key="m.key"
+              class="btn sm"
+              :class="disposeAction === m.key ? 'primary' : 'ghost'"
+              style="text-align: left; justify-content: flex-start"
+              @click="disposeAction = m.key"
+            >
+              {{ m.label }}
+              <span style="opacity: 0.65; font-weight: 400; margin-left: 8px">{{ m.hint }}</span>
+            </button>
           </div>
         </div>
         <div class="mf">
-          <button class="btn ghost sm" @click="showModal = false">取消</button>
-          <button class="btn primary sm" @click="showModal = false">确认处置并留痕</button>
+          <button class="btn ghost sm" :disabled="disposing" @click="showModal = false">
+            取消
+          </button>
+          <button class="btn primary sm" :disabled="disposing" @click="confirmDispose">
+            {{ disposing ? '处置中…' : '确认处置并留痕' }}
+          </button>
         </div>
       </div>
     </div>
