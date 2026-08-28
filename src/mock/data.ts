@@ -19,7 +19,7 @@ export interface VisitRecord {
   risk?: '正常' | '关注' | '高危'
 }
 
-export const visitors: VisitRecord[] = [
+const visitorsRaw: VisitRecord[] = [
   { id: 'V20260812001', name: '王小明', company: '中科云智', host: '李工', hostDept: '研发部', reason: '项目技术交流', date: '08-12', time: '14:00–17:00', area: '研发楼 1F', plate: '沪A·8X9K2', companions: 1, status: '在访', createTime: '08-11 10:24', risk: '正常' },
   { id: 'V20260812002', name: '陈晓', company: '华信咨询', host: '张经理', hostDept: '市场部', reason: '商务洽谈', date: '08-12', time: '15:30–16:30', area: '总部 3F', companions: 0, status: '待审批', createTime: '08-12 09:02', risk: '正常' },
   { id: 'V20260812003', name: '赵强', company: '—', host: '王主管', hostDept: '采购部', reason: '供应商拜访', date: '08-11', time: '09:00–10:00', area: '采购楼 2F', companions: 2, status: '黑名单', createTime: '08-10 16:40', risk: '高危' },
@@ -46,7 +46,7 @@ export interface Approval {
   applyTime: string
 }
 
-export const approvals: Approval[] = [
+const approvalsRaw: Approval[] = [
   { id: 'V20260812002', visitor: '陈晓', company: '华信咨询', host: '张经理', hostDept: '市场部', reason: '商务洽谈', time: '08-12 15:30', status: '待审批', applyTime: '08-12 09:02' },
   { id: 'V20260812008', visitor: '孙浩', company: '速达物流', host: '何主管', hostDept: '仓储部', reason: '送货对接', time: '08-12 16:00', status: '待审批', applyTime: '08-12 10:47' },
   { id: 'V20260812011', visitor: '高健', company: '云启软件', host: '赵工', hostDept: '研发部', reason: '接口对接', time: '08-13 09:30', status: '待审批', applyTime: '08-12 11:20', plate: '苏A·2H45J' },
@@ -65,7 +65,7 @@ export interface Verify {
   similarity?: number
 }
 
-export const verifies: Verify[] = [
+const verifiesRaw: Verify[] = [
   { id: 'V20260812004', visitor: '刘洋', method: '人脸', result: '通过', device: '北门闸机 01', time: '08-12 10:02', similarity: 98 },
   { id: 'V20260812001', visitor: '王小明', method: '二维码', result: '通过', device: '前台 Pad 02', time: '08-12 14:05' },
   { id: 'V20260812005', visitor: '周敏', method: '证件', result: '通过', device: '东门闸机 02', time: '08-12 09:33', similarity: 95 },
@@ -80,9 +80,10 @@ export interface Device {
   name: string
   type: '人脸终端' | '闸机' | '梯控' | '摄像头'
   location: string
+  version: string
+  // 以下为运行时指标：由设备心跳自动计算得出，禁止前端手动设置
   status: '在线' | '离线' | '告警'
   onlineRate: number
-  version: string
 }
 
 export const devices: Device[] = [
@@ -109,7 +110,7 @@ export interface Parking {
   status: '停放中' | '已离场' | '超时'
 }
 
-export const parkings: Parking[] = [
+const parkingsRaw: Parking[] = [
   { id: 'P20260812001', visitor: '王小明', plate: '沪A·8X9K2', area: 'B2 访客区', inTime: '08-12 13:58', freeMin: 180, fee: 0, status: '停放中' },
   { id: 'P20260812002', visitor: '周敏', plate: '苏B·7M88D', area: 'B3 访客区', inTime: '08-12 09:30', freeMin: 240, fee: 0, status: '停放中' },
   { id: 'P20260812003', visitor: '吴刚', plate: '浙C·5UY77', area: 'B2 访客区', inTime: '08-11 12:55', outTime: '08-11 15:10', duration: '2 时 15 分', freeMin: 180, fee: 0, status: '已离场' },
@@ -122,14 +123,14 @@ export interface Blacklist {
   id: string
   name: string
   certNo: string
-  level: '公安' | '企业' | '个人'
+  level: '企业' | '个人'
   reason: string
   source: string
   createTime: string
 }
 
-export const blacklist: Blacklist[] = [
-  { id: 'B001', name: '赵强', certNo: '3201**********1234', level: '公安', reason: '公安联网拦截', source: '公安实名网关', createTime: '08-10 16:40' },
+const blacklistRaw: Blacklist[] = [
+  { id: 'B001', name: '赵强', certNo: '3201**********1234', level: '企业', reason: '同行通报 · 恶意闯入', source: '同行名单库', createTime: '08-10 16:40' },
   { id: 'B002', name: '黄伟', certNo: '3210**********8888', level: '企业', reason: '翻拍预警 + 恶意闯入', source: '企业名单库', createTime: '08-08 11:20' },
   { id: 'B003', name: '徐芳', certNo: '3301**********4567', level: '个人', reason: '被访人投诉', source: '手工录入', createTime: '07-28 09:05' },
 ]
@@ -191,3 +192,43 @@ export interface ParkingConfig {
   discountPolicy: string
   graceMin: number
 }
+
+// ============================================================
+// 日期动态化：离线演示数据以 2026-08-12 为基准构造，导出前整体
+// 平移，使日期始终围绕「今天」，离线展示与在线数据日期一致
+// ============================================================
+const BASE_DAY = new Date(2026, 7, 12).getTime()
+const DAY_MS = 86400000
+const DATE_SHIFT = Math.round((Date.now() - BASE_DAY) / DAY_MS)
+
+function shiftDate(s?: string): string | undefined {
+  if (!s) return s
+  return s.replace(/(\d{2})-(\d{2})/g, (_m, mo: string, dd: string) => {
+    const d = new Date(2026, Number(mo) - 1, Number(dd) + DATE_SHIFT)
+    return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+}
+
+export const visitors = visitorsRaw.map((v) => ({
+  ...v,
+  date: shiftDate(v.date)!,
+  createTime: shiftDate(v.createTime)!,
+}))
+export const approvals = approvalsRaw.map((a) => ({
+  ...a,
+  time: shiftDate(a.time)!,
+  applyTime: shiftDate(a.applyTime)!,
+}))
+export const verifies = verifiesRaw.map((v) => ({
+  ...v,
+  time: shiftDate(v.time)!,
+}))
+export const parkings = parkingsRaw.map((p) => ({
+  ...p,
+  inTime: shiftDate(p.inTime)!,
+  outTime: p.outTime ? shiftDate(p.outTime) : undefined,
+}))
+export const blacklist = blacklistRaw.map((b) => ({
+  ...b,
+  createTime: shiftDate(b.createTime)!,
+}))

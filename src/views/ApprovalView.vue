@@ -4,6 +4,7 @@ import { api } from '@/api'
 import { notify } from '@/utils/toast'
 import { visitors as fallback } from '@/mock/data'
 import type { VisitRecord } from '@/mock/data'
+import { fromFullDate, today, toFullDate, todayFull } from '@/utils/date'
 
 const tab = ref<'待审批' | '已处理'>('待审批')
 const list = ref<VisitRecord[]>([])
@@ -68,7 +69,7 @@ const inviteForm = ref({
   host: '李工',
   hostDept: '研发部',
   reason: '受邀来访',
-  date: '08-14',
+  dateInput: todayFull(),
   time: '10:00',
   area: '研发楼 1F',
   freeMin: 180,
@@ -84,6 +85,10 @@ async function submitInvite() {
     notify.warn('请填写访客姓名与被访人')
     return
   }
+  if (inviteForm.value.dateInput < todayFull()) {
+    notify.warn('到访日期不能早于今天')
+    return
+  }
   inviteSaving.value = true
   try {
     await api.createVisit({
@@ -92,7 +97,7 @@ async function submitInvite() {
       host: inviteForm.value.host.trim(),
       hostDept: inviteForm.value.hostDept.trim(),
       reason: inviteForm.value.reason.trim(),
-      date: inviteForm.value.date,
+      date: fromFullDate(inviteForm.value.dateInput),
       time: inviteForm.value.time,
       area: inviteForm.value.area,
       plate: '',
@@ -130,7 +135,7 @@ function parseCsv(text: string): string[][] {
 function downloadTemplate() {
   const headers = ['访客姓名', '公司', '被访人', '部门', '来访事由', '日期', '时间', '区域']
   const csv =
-    headers.join(',') + '\r\n' + '张三,某科技公司,李工,研发部,技术交流,08-14,10:00,研发楼 1F'
+    headers.join(',') + '\r\n' + `张三,某科技公司,李工,研发部,技术交流,${today()},10:00,研发楼 1F`
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -174,7 +179,7 @@ async function submitBatch() {
         host: r[2] || '李工',
         hostDept: r[3] || '',
         reason: r[4] || '受邀来访',
-        date: r[5] || '08-14',
+        date: r[5] || today(),
         time: r[6] || '10:00',
         area: r[7] || '研发楼 1F',
         plate: '',
@@ -195,11 +200,11 @@ async function submitBatch() {
 const showReschedule = ref(false)
 const rescheduleSaving = ref(false)
 const rescheduleTarget = ref<VisitRecord | null>(null)
-const rescheduleForm = ref({ date: '08-14', time: '10:00' })
+const rescheduleForm = ref({ dateInput: todayFull(), time: '10:00' })
 
 function openReschedule(a: VisitRecord) {
   rescheduleTarget.value = a
-  rescheduleForm.value = { date: a.date, time: (a.time || '').split('–')[0] || '10:00' }
+  rescheduleForm.value = { dateInput: toFullDate(a.date), time: (a.time || '').split('–')[0] || '10:00' }
   showReschedule.value = true
 }
 function closeReschedule() {
@@ -208,17 +213,21 @@ function closeReschedule() {
 async function submitReschedule() {
   const a = rescheduleTarget.value
   if (!a) return
+  if (rescheduleForm.value.dateInput < todayFull()) {
+    notify.warn('改期日期不能早于今天')
+    return
+  }
   rescheduleSaving.value = true
   try {
     await api.updateVisit(a.id, {
-      date: rescheduleForm.value.date,
+      date: fromFullDate(rescheduleForm.value.dateInput),
       time: rescheduleForm.value.time,
     })
     notify.success(
       '已改期：' +
         a.name +
         ' 的访问时间调整为 ' +
-        rescheduleForm.value.date +
+        fromFullDate(rescheduleForm.value.dateInput) +
         ' ' +
         rescheduleForm.value.time +
         '，已同步小程序'
@@ -371,7 +380,7 @@ async function submitReschedule() {
             </div>
             <div class="form-item">
               <label>到访日期</label>
-              <input v-model="inviteForm.date" placeholder="08-14" />
+              <input type="date" v-model="inviteForm.dateInput" :min="todayFull()" />
             </div>
             <div class="form-item">
               <label>到访时间</label>
@@ -484,7 +493,7 @@ async function submitReschedule() {
           <div class="form-grid">
             <div class="form-item">
               <label>新日期</label>
-              <input v-model="rescheduleForm.date" placeholder="08-14" />
+              <input type="date" v-model="rescheduleForm.dateInput" :min="todayFull()" />
             </div>
             <div class="form-item">
               <label>新时间</label>

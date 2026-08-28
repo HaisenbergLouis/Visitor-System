@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
-import { devices as fallback, areaTree } from '@/mock/data'
+import { devices as fallback, areaTree, type Device } from '@/mock/data'
 import { api } from '@/api'
+import { notify } from '@/utils/toast'
 import * as echarts from 'echarts'
 import EChart from '@/components/EChart.vue'
 
@@ -186,6 +187,99 @@ function simulate(trigger: string, note: string) {
     else pushLog('⏸ ' + note + ' → 「' + r.name + '」未启用，已跳过')
   })
 }
+
+// ===== 设备管理（增 / 改 / 删）=====
+const showDeviceEdit = ref(false)
+const isEditDevice = ref(false)
+const deviceForm = ref({
+  id: '',
+  name: '',
+  type: '闸机' as Device['type'],
+  location: '',
+  version: 'v1.0.0',
+})
+
+function openDeviceAdd() {
+  isEditDevice.value = false
+  deviceForm.value = {
+    id: '',
+    name: '',
+    type: '闸机',
+    location: '',
+    version: 'v1.0.0',
+  }
+  showDeviceEdit.value = true
+}
+
+function openDeviceEdit(d: Device) {
+  isEditDevice.value = true
+  deviceForm.value = {
+    id: d.id,
+    name: d.name,
+    type: d.type,
+    location: d.location,
+    version: d.version,
+  }
+  showDeviceEdit.value = true
+}
+
+function closeDeviceEdit() {
+  showDeviceEdit.value = false
+}
+
+async function saveDevice() {
+  const f = deviceForm.value
+  if (!f.name.trim()) {
+    notify.warn('请填写设备名称')
+    return
+  }
+  try {
+    if (isEditDevice.value) {
+      await api.updateDevice(f.id, {
+        name: f.name,
+        type: f.type,
+        location: f.location,
+        version: f.version,
+      })
+      const idx = list.value.findIndex(x => x.id === f.id)
+      const cur = idx >= 0 ? list.value[idx] : undefined
+      if (cur) Object.assign(cur, f)
+      notify.success('设备已更新：' + f.name)
+    } else {
+      const created = await api.createDevice({
+        name: f.name,
+        type: f.type,
+        location: f.location,
+        version: f.version,
+      })
+      list.value.push(created)
+      notify.success('设备已添加：' + created.name)
+    }
+    showDeviceEdit.value = false
+  } catch {
+    notify.error('保存失败：请确认 Mock 服务已启动（node mock-server）')
+  }
+}
+
+const deleteTarget = ref<Device | null>(null)
+function openDeleteDevice(d: Device) {
+  deleteTarget.value = d
+}
+function closeDeleteDevice() {
+  deleteTarget.value = null
+}
+async function confirmDeleteDevice() {
+  const d = deleteTarget.value
+  if (!d) return
+  try {
+    await api.deleteDevice(d.id)
+    list.value = list.value.filter(x => x.id !== d.id)
+    notify.success('设备已删除：' + d.name)
+  } catch {
+    notify.error('删除失败：请确认 Mock 服务已启动（node mock-server）')
+  }
+  deleteTarget.value = null
+}
 </script>
 
 <template>
@@ -215,7 +309,7 @@ function simulate(trigger: string, note: string) {
           <option v-for="t in deviceTypes" :key="t">{{ t }}</option>
         </select>
         <div class="spacer"></div>
-        <button class="btn secondary sm">添加设备</button>
+        <button class="btn secondary sm" @click="openDeviceAdd">添加设备</button>
       </div>
       <div class="dtable-wrap">
         <table class="dtable">
@@ -225,6 +319,7 @@ function simulate(trigger: string, note: string) {
               <th>位置</th>
               <th>状态</th>
               <th>在线率</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -243,6 +338,12 @@ function simulate(trigger: string, note: string) {
                 <span class="badge" :class="statusClass(d.status)">{{ d.status }}</span>
               </td>
               <td>{{ d.onlineRate }}%</td>
+              <td>
+                <button class="btn ghost sm" style="margin-right: 6px" @click="openDeviceEdit(d)">
+                  编辑
+                </button>
+                <button class="btn danger sm" @click="openDeleteDevice(d)">删除</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -371,6 +472,57 @@ function simulate(trigger: string, note: string) {
         <div class="mf">
           <button class="btn ghost sm" @click="closeRuleEdit">取消</button>
           <button class="btn primary sm" @click="saveRuleEdit">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加/编辑设备弹窗 -->
+    <div v-if="showDeviceEdit" class="modal-mask" @click.self="closeDeviceEdit">
+      <div class="modal" style="width: 480px">
+        <div class="mh">{{ isEditDevice ? '编辑设备' : '添加设备' }}</div>
+        <div class="mb">
+          <div class="form-grid">
+            <div class="form-item">
+              <label>设备名称</label>
+              <input v-model="deviceForm.name" placeholder="如：南门闸机 03" />
+            </div>
+            <div class="form-item">
+              <label>设备类型</label>
+              <select v-model="deviceForm.type">
+                <option value="人脸终端">人脸终端</option>
+                <option value="闸机">闸机</option>
+                <option value="梯控">梯控</option>
+                <option value="摄像头">摄像头</option>
+              </select>
+            </div>
+            <div class="form-item">
+              <label>安装位置</label>
+              <input v-model="deviceForm.location" placeholder="如：园区南门" />
+            </div>
+            <div class="form-item">
+              <label>固件版本</label>
+              <input v-model="deviceForm.version" placeholder="如：v2.3.1" />
+            </div>
+          </div>
+          <div style="font-size: 12.5px; color: var(--ink-400); margin-top: 10px">
+            设备状态与在线率由系统按设备心跳自动判定，无需手动设置。
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn ghost sm" @click="closeDeviceEdit">取消</button>
+          <button class="btn primary sm" @click="saveDevice">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除设备确认弹窗 -->
+    <div v-if="deleteTarget" class="modal-mask" @click.self="closeDeleteDevice">
+      <div class="modal" style="width: 400px">
+        <div class="mh">删除设备</div>
+        <div class="mb">确认删除设备「{{ deleteTarget.name }}」？删除后该设备将从终端列表中移除。</div>
+        <div class="mf">
+          <button class="btn ghost sm" @click="closeDeleteDevice">取消</button>
+          <button class="btn danger sm" @click="confirmDeleteDevice">确认删除</button>
         </div>
       </div>
     </div>

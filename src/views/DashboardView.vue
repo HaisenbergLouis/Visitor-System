@@ -1,20 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import * as echarts from 'echarts'
 import EChart from '@/components/EChart.vue'
 import { visitors, verifies, blacklist, report } from '@/mock/data'
+import { today } from '@/utils/date'
 
-const kpis = [
-  { label: '今日预约', value: 128, delta: '+12%', up: true },
-  { label: '在场访客', value: 96, delta: '+8%', up: true },
-  { label: '待审批', value: 3, delta: '2 单超 1 小时', up: false },
-  { label: '黑名单预警', value: 1, delta: '需处置', up: false },
-]
+// KPI 全部来自实时数据（mock 数据已随系统日期动态平移）
+const todayStr = today()
+const todayCount = computed(() =>
+  visitors.filter((v) => v.date === todayStr && (v.status === '在访' || v.status === '已签到' || v.status === '待审批' || v.status === '已通过')).length,
+)
+const inHouse = computed(() => visitors.filter((v) => v.status === '在访').length)
+const pending = computed(() => visitors.filter((v) => v.status === '待审批').length)
+const risk = computed(() => blacklist.length)
 
-const todayCount = visitors.filter((v) => v.date === '08-12' && (v.status === '在访' || v.status === '已签到' || v.status === '待审批' || v.status === '已通过')).length
-const inHouse = visitors.filter((v) => v.status === '在访').length
-const pending = visitors.filter((v) => v.status === '待审批').length
-const risk = blacklist.length
+const kpis = computed(() => [
+  { label: '今日预约', value: todayCount.value, delta: '实时统计', up: true },
+  { label: '在场访客', value: inHouse.value, delta: '实时统计', up: true },
+  { label: '待审批', value: pending.value, delta: '待处理', up: false },
+  { label: '黑名单预警', value: risk.value, delta: '需处置', up: false },
+])
 
 const alertItems = [
   { level: 'danger', text: '黑名单命中：访客「赵强」试图进入，已拦截并通知安保', time: '2 分钟前' },
@@ -111,7 +116,7 @@ const recent = visitors.slice(0, 6)
       <div class="card">
         <div class="card-h">
           <h3>近 7 日访客趋势</h3>
-          <span class="chip">今日 {{ todayCount }} 单</span>
+          <span class="chip">今日 {{ todayStr }} · {{ todayCount }} 单</span>
         </div>
         <EChart :option="trendOption" height="280px" />
       </div>

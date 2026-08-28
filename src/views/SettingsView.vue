@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { relDate } from '@/utils/date'
 
 const tabs = ['组织与楼宇', '通知模板', '日志与审计', '基础配置'] as const
 const tab = ref<(typeof tabs)[number]>('组织与楼宇')
 
 const notify = ref({ wx: true, sms: true, workWeixin: false })
 
+// 操作日志（时间动态生成，围绕今天）
 const logs = [
-  { user: 'admin', action: '通过审批 V20260812002', time: '08-12 09:05' },
-  { user: '前台01', action: '核验放行 王小明', time: '08-12 14:05' },
-  { user: 'admin', action: '导出访客报表（脱敏）', time: '08-12 11:30' },
-  { user: '安保02', action: '处置黑名单命中 赵强', time: '08-12 10:12' },
+  { user: 'admin', action: '通过审批 V20260812002', time: `${relDate(0)} 09:05` },
+  { user: '前台01', action: '核验放行 王小明', time: `${relDate(0)} 14:05` },
+  { user: 'admin', action: '导出访客报表（脱敏）', time: `${relDate(0)} 11:30` },
+  { user: '安保02', action: '处置黑名单命中 赵强', time: `${relDate(-1)} 10:12` },
 ]
+const lastSync = `${relDate(0)} 02:00`
 </script>
 
 <template>
@@ -35,7 +38,7 @@ const logs = [
           </tbody>
         </table>
       </div>
-      <div style="font-size: 12.5px; color: var(--ink-500); margin-top: 12px">🔗 部门通讯录：与 HR 系统每日 02:00 定时同步（上次同步 08-12 02:00 成功）</div>
+      <div style="font-size: 12.5px; color: var(--ink-500); margin-top: 12px">🔗 部门通讯录：与 HR 系统每日 02:00 定时同步（上次同步 {{ lastSync }} 成功）</div>
     </div>
 
     <!-- 通知模板 -->
